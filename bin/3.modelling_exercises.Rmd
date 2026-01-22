@@ -1,0 +1,624 @@
+---
+title: "3.modelling (exercises)"
+author: "Joao Lopes"
+date: "2026-03-25"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, eval=FALSE)
+
+```
+
+\newpage
+
+\tableofcontents
+
+***
+\newpage
+
+# 1. BUILD A MODEL
+
+```{r 1_variation, warning=FALSE, message=FALSE}
+library("dotwhisker") 
+library("tidymodels")
+library("tidyverse")
+library("janitor")
+
+```
+
+## 1.1. LOOK AT DATA
+
+[no exercises]
+
+## 1.2. FIT A MODEL
+
+a\) Evaluate the following model using function glance(). Evaluate it also using function augment() and rsq() from tidymodels. What are the possible problems of using the same data to fit and to evaluate the model?
+```{r 1_2_1_modelling, echo=TRUE, eval=FALSE}
+set.seed(123)
+lev_cut = c("Fair", "Good", "Very Good", "Premium", "Ideal")
+diamonds_data <- diamonds |>
+  mutate(
+    log_price = log(price),
+    log_carat = log(carat),
+    cut = fct(as.character(cut), levels = lev_cut),
+    .keep = "used"
+  ) |>
+  slice_sample(n = 1000)
+lm_fit <- linear_reg() |>
+  fit(log_price ~ log_carat + cut, data = diamonds_data)
+
+```
+```{r 1_2_2_modelling}
+#loading data and making changes
+set.seed(123)
+lev_cut = c("Fair", "Good", "Very Good", "Premium", "Ideal")
+diamonds_data <- diamonds |>
+  mutate(
+    log_price = log(price),
+    log_carat = log(carat),
+    cut = fct(as.character(cut), levels = lev_cut),
+    .keep = "used"
+  ) |>
+  slice_sample(n = 1000)
+
+#fit model
+lm_fit <- linear_reg() |>
+  fit(log_price ~ log_carat + cut, data = diamonds_data)
+
+#evaluate using glance()
+glance(lm_fit)
+
+#evaluate using augment() and rsq()
+augment(lm_fit, new_data = diamonds_data) |>
+  rsq(truth = log_price, estimate = .pred)
+
+# Conclusions
+# 1. Using same data to fit and evaluate can overestimate evaluation.
+
+```
+
+b\) How can you avoid overestimating the evaluation of the model? Consider taking a new sample of the data.
+```{r 1_2_3_modelling}
+#obtain a new sample of the data
+set.seed(456)
+diamonds_data2 <- diamonds |>
+  mutate(
+    log_price = log(price),
+    log_carat = log(carat),
+    cut = fct(as.character(cut), levels = lev_cut),
+    .keep = "used"
+  ) |>
+  slice_sample(n = 1000)
+
+#evaluate using the new sample
+augment(lm_fit, new_data = diamonds_data2) |>
+  rsq(truth = log_price, estimate = .pred)
+
+```
+
+c\) Using the same fitted model, build by hand a plot showing how the residuals vary a long the values of the predictors. 
+```{r 1_2_4_modelling}
+#plot residuals ~ fitted
+augment(lm_fit, new_data = diamonds_data) |>
+  ggplot(aes(y = .resid, x = .pred)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "blue")
+
+```
+
+## 1.3. USE MODEL TO PREDICT
+
+a\) Using the model from the previous section, predict the price of diamonds with 1, 2 and 3 carat for cuts "Fair", "Very Good" and "Ideal". Build a plot of the predictions using a confidence interval of 90%.
+```{r 1_3_1_modelling}
+#create new points
+new_points2 <- expand.grid(
+  log_carat = log(1:3),  cut = c("Fair", "Very Good", "Ideal"))
+
+#create plot
+bind_cols(
+  #new points
+  new_points2,
+  #fitted values
+  predict(lm_fit, new_data = new_points2),
+  #confidence intervals
+  predict(lm_fit, new_data = new_points2, type = "conf_int", level = 0.90)
+) |>
+  #plot data
+  ggplot(aes(x = exp(log_carat), color = cut)) + 
+  geom_point(aes(y = exp(.pred))) + 
+  geom_errorbar(
+    aes(ymin = exp(.pred_lower), ymax = exp(.pred_upper)),
+    width = 0.1
+  ) + 
+  labs(x = "diamond carat", y = "diamond price", color = "diamond cut")
+
+```
+
+***
+\newpage
+
+# 2. BUILD A MODEL USING WORKFLOW
+
+```{r 2_modelling, warning=FALSE, message=FALSE}
+library("nycflights13")
+library("tidymodels")
+library("tidyverse")
+
+```
+
+## 2.1. LOOK AT DATA
+
+[no exercises]
+
+## 2.2. SPLIT DATA
+
+[no exercises]
+
+## 2.3. CREATE MODEL
+
+[no exercises]
+
+## 2.4. CREATE RECIPE
+
+[no exercises]
+
+## 2.5. CREATE WORKFLOW
+
+a\) Considering the following workflow, build a new workflow without the steps of the recipe. Consider replacing the function add_recipe() with add_formula().
+```{r 2_3_1_modelling, echo=TRUE, eval=FALSE}
+glm_mod <- logistic_reg() |>
+  set_engine("glm")
+glm_rec <- 
+  recipe(arr_delay ~ ., data = train_data) |>
+  step_date(date, features = c("dow", "month")) |>
+  step_holiday(date, holidays = timeDate::listHolidays("US")) |>
+  step_rm(date) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+glm_wflow <-
+  workflow() |>
+  add_model(glm_mod) |>
+  add_recipe(glm_rec)
+
+```
+```{r 2_3_2_modelling}
+#create model specification
+glm_mod <- logistic_reg() |>
+  set_engine("glm")
+
+#create workflow
+glm_wflow2 <-
+  workflow() |>
+  add_model(glm_mod) |>
+  add_formula(arr_delay ~ .)
+
+```
+
+## 2.6. FIT A MODEL
+
+a\) Using the given workflow and the newly created one, fit the two models to the following data set. Consider the data split in train and test sets.
+```{r 2_4_1_modelling, echo=TRUE, eval=FALSE}
+set.seed(123)
+flight_data <-
+  flights |> 
+  mutate(
+    arr_delay = if_else(arr_delay >= 30, "late", "on_time"),
+    arr_delay = fct(arr_delay, levels = c("late", "on_time")),
+    date = lubridate::as_date(time_hour)
+  ) |> 
+  select(dep_time, origin, dest, distance, carrier, date, arr_delay) |> 
+  drop_na() |> 
+  mutate(across(where(is.character), as.factor)) |>
+  slice_sample(n = 10000)
+
+set.seed(456)
+data_split <- initial_split(flight_data, prop = 3/4)
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+
+```
+```{r 2_4_2_modelling}
+#loading data and making changes
+set.seed(123)
+flight_data <- 
+  flights |> 
+  mutate(
+    arr_delay = if_else(arr_delay >= 30, "late", "on_time"),
+    arr_delay = fct(arr_delay, levels = c("late", "on_time")),
+    date = lubridate::as_date(time_hour)
+  ) |> 
+  select(dep_time, origin, dest, distance, carrier, date, arr_delay) |> 
+  drop_na() |> 
+  mutate(across(where(is.character), as.factor)) |>
+  slice_sample(n = 10000)
+
+#create random data split
+set.seed(456)
+data_split <- initial_split(flight_data, prop = 3/4)
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+
+#create model specification
+glm_mod <- logistic_reg() |>
+  set_engine("glm")
+
+#create recipe
+glm_rec <- 
+  #new recipe
+  recipe(arr_delay ~ ., data = train_data) |>
+  #add date features
+  step_date(date, features = c("dow", "month")) |>
+  step_holiday(date, holidays = timeDate::listHolidays("US")) |>
+  step_rm(date) |>
+  #convert categorical variables to dummies
+  step_dummy(all_nominal_predictors()) |>
+  #remove columns with zero variance
+  step_zv(all_predictors())
+
+#create workflow 1
+glm_wflow <-
+  workflow() |>
+  add_model(glm_mod) |>
+  add_recipe(glm_rec)
+
+#create workflow 2
+glm_wflow2 <-
+  workflow() |>
+  add_model(glm_mod) |>
+  add_formula(arr_delay ~ .)
+
+#fit both models
+glm_fit <- glm_wflow |> fit(data = train_data)
+glm_fit2 <- glm_wflow2 |>  fit(data = train_data)
+```
+
+## 2.7. EVALUATE MODEL
+
+a\) How did the previously fitted models perform? Use the appropriate statistic. 
+```{r 2_5_1_modelling}
+#evaluate both models
+glm_aug <- augment(glm_fit, new_data = test_data)
+glm_aug |> roc_auc(truth = arr_delay, .pred_late)
+glm_aug2 <- augment(glm_fit2, new_data = test_data)
+glm_aug2 |> roc_auc(truth = arr_delay, .pred_late)
+
+```
+b\) Looking at the augmented data set, try to guess which probability threshold was used for predicting the classes in .pred_class? 
+```{r 2_5_2_modelling}
+glm_aug |>
+  select(.pred_class, .pred_late) |>
+  arrange(desc(.pred_late)) |>
+  mutate(
+    is_ontime = as.numeric(.pred_class == "on_time"),
+    is_thresh = as.logical(is_ontime - lag(is_ontime))
+  ) |>
+  filter(is_thresh)
+
+# Conclusions:
+# 1. The probability considered is the classic 50% threshold.
+
+```
+
+c\) Using function conf_mat(), calculate a confusion matrix for the best model. Using function tabyl(), calculate by hand a confusion matrix to the best model.
+```{r 2_5_3_modelling}
+#calculate confusion matrix with function conf_mat()
+glm_aug |>
+  conf_mat(truth = arr_delay, estimate = .pred_class)
+
+#calculate confusion matrix by hand
+glm_aug |> tabyl(.pred_class, arr_delay) |>
+  rename(Prediction = .pred_class)
+
+```
+
+d\) Use probability thresholds of 0.40 and 0.60 to predict the classes of the best model. How does the threshold value impact on the confusion matrix? 
+```{r 2_5_4_modelling}
+#decrease probability threshold to 0.40
+glm_aug |>
+  mutate(.pred_class = if_else(.pred_on_time > 0.40, "on_time", "late")) |>
+  tabyl(.pred_class, arr_delay) |>
+  rename(Prediction = .pred_class)
+
+# Conclusions 1
+# 1. A lower threshold decreases true positives and increases true negatives.
+
+#increase probability threshold to 0.60
+glm_aug |>
+  mutate(.pred_class = if_else(.pred_on_time > 0.60, "on_time", "late")) |>
+  tabyl(.pred_class, arr_delay) |>
+  rename(Prediction = .pred_class)
+
+# Conclusions 2:
+# 2. A higher threshold increases true positives and decreases true negatives.
+
+```
+
+e\) Using the original confusion matrix calculate the sensitivity (= TP/P) and the specificity (= TN/N). 
+```{r 2_5_5_modelling}
+#calculate statistics of the confusion matrix
+glm_aug |> conf_mat(truth = arr_delay, .pred_class) |> summary()
+
+#calculate sensitivity (= TP/P)
+32/(32 + 338)
+
+#calculate specificity (= TN/N)
+2099/(31 + 2099)
+
+```
+
+f\) Create the ROC curve and place the calculated values of sensitivity and specificity on it. Use geom_hline(), geom_vline() and geom_point(). 
+```{r 2_5_6_modelling}
+#create ROC curve with sensitivity and specificity of the model
+glm_aug |>
+  roc_curve(truth = arr_delay, .pred_late) |> 
+  autoplot() +
+  geom_hline(yintercept = 0.086, lty = 2) +
+  geom_vline(xintercept = 1 - 0.985, lty = 2) +
+  geom_point(aes(x = 1 - 0.985, y = 0.086), shape=21, size=2)
+
+```
+
+g\) Find which terms are more important to the best fitted model and plot them. Use the statistics of each term as a proxy for their importance. Try also using the estimates of the coefficients. Are the results similar? Note that term "(Intercept)" is meaningless and should be discarded. 
+```{r 2_5_7_modelling}
+
+#using importance = statistics
+glm_fit |> 
+  extract_fit_parsnip() |> 
+  tidy() |>
+  filter(!term %in% c("(Intercept)")) |>
+  mutate(
+    importance = abs(statistic),
+    term = fct_reorder(term, importance)
+  ) |>
+  arrange(desc(importance)) |>
+  slice_head(n = 20) |>
+  ggplot(aes(x = importance, y = term)) +
+  geom_col()
+
+# Conclusions 1:
+# 1. dep_time is by far the most important term
+
+glm_fit |> 
+  extract_fit_parsnip() |> 
+  tidy() |>
+  filter(!term %in% c("(Intercept)")) |>
+  mutate(
+    importance = estimate,
+    term = fct_reorder(term, importance)
+  ) |>
+  arrange(desc(importance)) |>
+  slice_head(n = 20) |>
+  ggplot(aes(x = importance, y = term)) +
+  geom_col()
+
+# Conclusions 2:
+# 1. destinations are important terms
+# 2. specific US holidays are also important
+
+# Conclusions 3:
+# 1. results are very different,
+# 2. 'statistics' focus on the significance of the terms,
+# 3. 'estimate' focus on the absolute value of the term.
+
+```
+
+***
+\newpage
+
+# 3. BUILD VARIOUS MODELS USING WORKFLOW
+
+```{r 3_modelling, warning=FALSE, message=FALSE}
+library("nnet")
+library("NeuralNetTools")
+library("vip")
+library("tidymodels")
+library("tidyverse")
+
+```
+
+## 3.1. LOOK AT DATA
+
+[no exercises]
+
+## 3.2. SPLIT DATA
+
+[no exercises]
+
+## 3.3. CREATE WORKFLOW AND FIT MODEL 1
+
+a\) Considering the following split data set and tidymodel recipe, create the respective workflow and fit a simple logistic model. Use the ROC curve and ROC area to evaluate your model.
+```{r 3_3_1_modelling, echo=TRUE, eval=FALSE}
+hotels <- 
+  read_csv("https://tidymodels.org/start/case-study/hotels.csv") |>
+  mutate(across(where(is.character), as.factor))
+
+set.seed(123)
+splits      <- initial_split(hotels, strata = children, prop = 0.75)
+hotel_other <- training(splits)
+hotel_test  <- testing(splits)
+
+holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
+              "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
+lr_recipe <- 
+  recipe(children ~ ., data = hotel_other) |> 
+  step_date(arrival_date) |> 
+  step_holiday(arrival_date, holidays = holidays) |> 
+  step_rm(arrival_date) |> 
+  step_dummy(all_nominal_predictors()) |> 
+  step_zv(all_predictors()) |> 
+  step_normalize(all_predictors())
+
+```
+```{r 3_3_2_modelling}
+#loading data and making changes
+hotels <- 
+  read_csv("https://tidymodels.org/start/case-study/hotels.csv") |>
+  mutate(across(where(is.character), as.factor))
+
+#create random data split
+set.seed(123)
+splits      <- initial_split(hotels, strata = children, prop = 0.75)
+hotel_other <- training(splits)
+hotel_test  <- testing(splits)
+
+#create recipe
+holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
+              "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
+lr_recipe <- 
+  #new recipe
+  recipe(children ~ ., data = hotel_other) |> 
+  #add date features
+  step_date(arrival_date) |> 
+  step_holiday(arrival_date, holidays = holidays) |> 
+  step_rm(arrival_date) |> 
+  #convert categorical variables to dummies
+  step_dummy(all_nominal_predictors()) |> 
+  #remove columns with zero variance
+  step_zv(all_predictors()) |> 
+  #normalize numeric data
+  step_normalize(all_predictors())
+
+#create model specification
+glm_mod <- 
+  logistic_reg() |> 
+  set_engine("glm")
+
+#create workflow  
+glm_workflow <- 
+  workflow() |> 
+  add_model(glm_mod) |> 
+  add_recipe(lr_recipe)
+
+#fit model using training data
+t1 <- Sys.time()
+glm_res <- 
+  glm_workflow |> 
+  fit(data = hotel_other)
+Sys.time() - t1
+
+#calculate predictions using testing data
+glm_aug <- augment(glm_res, new_data = hotel_test)
+
+#evaluate model using ROC curve
+glm_aug |> roc_curve(children, .pred_children) |> autoplot()
+
+#evaluate model using ROC area
+glm_aug |> roc_auc(truth = children, .pred_children)
+
+```
+
+## 3.4. CREATE WORKFLOW AND FIT MODEL 2
+
+a\) Replace the glm model used above with a neural network model. Consider function mlp() with engine "nnet" and mode "classification". For the hyper parameters, set hidden_units = 1 and penalty = tune(). Use the same recipe as before. To tune the model set a grid of 10 points and use the given data split. Choose the best model and evaluate it with a ROC curve and the ROC area. How confident are you about the tuning?
+```{r 3_4_1_modelling, echo=TRUE, eval=FALSE}
+set.seed(234)
+val_set <- validation_split(hotel_other, strata = children, prop = 0.80)
+```
+```{r 3_4_2_modelling}
+#create random split of training data
+set.seed(234)
+val_set <- validation_split(hotel_other, strata = children, prop = 0.80)
+
+#create model specification
+cores <- parallel::detectCores()
+nn_mod <- 
+  mlp(
+    hidden_units = 1, #hidden units of the neural network
+    penalty = tune(), #amount of regularization
+  ) |> 
+  set_engine("nnet", num.threads = cores) |> 
+  set_mode("classification")
+
+#create workflow
+nn_workflow <- 
+  workflow() |> 
+  add_model(nn_mod) |> 
+  add_recipe(lr_recipe)
+
+#fit model using training data and evaluate using tuning data
+t1 <- Sys.time()
+set.seed(345)
+nn_res <- 
+  nn_workflow |> 
+  tune_grid(
+    val_set,
+    grid = 10,
+    control = control_grid(save_pred = TRUE),
+    metrics = metric_set(roc_auc)
+  )
+Sys.time() - t1
+
+#plot tuning metrics
+autoplot(nn_res)
+
+# Conclusions 1
+# 1. the best values of the parameter seem to be rather random,
+# 2. results provide little confidence on the tuning.
+
+#select best tuning parameter
+nn_best <- 
+  nn_res |> 
+  select_best(metric = "roc_auc")
+
+#collect predictions using best tuned model
+nn_pred <-
+  nn_res |> 
+  collect_predictions(parameters = nn_best)
+
+#evaluate model using ROC curve
+nn_pred |> 
+  roc_curve(children, .pred_children) |> 
+  autoplot()
+
+#evaluate model using ROC area
+nn_pred |> roc_auc(children, .pred_children)
+
+```
+
+## 3.5. EVALUATE MODEL
+
+a\) Choose the best tuned neural network model and evaluated it using the test data created before. For the evaluation, consider the ROC curve and ROC area. Finish the analysis by plotting the most important features (i.e. predictors) of the final model. Set the importance parameter of the engine to "impurity". 
+```{r 3_5_1_modelling}
+#build last model
+last_nn_mod <- 
+  mlp(hidden_units = 1, penalty = nn_best$penalty) |> 
+  set_engine("nnet", num.threads = cores, importance = "impurity") |> 
+  set_mode("classification")
+
+#create last workflow
+last_nn_workflow <- 
+  #neural network workflow
+  nn_workflow |> 
+  #update with tuned model
+  update_model(last_nn_mod)
+
+#fit last model using testing data
+t1 <- Sys.time()
+set.seed(345)
+last_nn_fit <- 
+  last_nn_workflow |> 
+  last_fit(split = splits)
+Sys.time() - t1
+
+#collect predictions using testing data
+last_rf_pred <- last_nn_fit |>
+  collect_predictions()
+
+#evaluate model using ROC curve
+last_rf_pred |>
+  roc_curve(children, .pred_children) |>
+  autoplot()
+
+#evaluate model using ROC area
+last_rf_pred |>
+  roc_auc(children, .pred_children)
+
+#extract results
+last_nn_fit |> 
+  extract_fit_parsnip() |> 
+  vip(num_features = 20)
+
+```
