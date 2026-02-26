@@ -39,7 +39,6 @@ diamonds |>                         #use data "diamonds"
 {
 ## 2.1. PACKAGE ggplot2
 set.seed(1984)
-
 f1 <- "media/fig2_ggplot2.png"
 p1 <- diamonds |>                             #use data "diamonds"
   filter(carat < 3) |>                        #filter for smaller diamonds
@@ -61,9 +60,13 @@ ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 {
 library("performance")
 library("see")
+library("gridExtra")
 library("rpart")
+library("nnet")
+library("NeuralNetTools")
 
 ## 3.1. PACKAGE stats
+set.seed(1984)
 diamonds2 <- diamonds |>                      #use data "diamonds"
   filter(
     (x > 0) & (y > 0 & y < 20) & (z > 0 & z < 10), #filter out outliers
@@ -98,6 +101,7 @@ dev.off()
 ## 3.3. MODELS
 
 #simple linear model
+set.seed(1984)
 beta0 <- -1.6
 beta1 <- 0.03
 tb_lm <- tibble(
@@ -120,6 +124,7 @@ p1 <- tb_lm |>
 ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
 #multiple linear model
+set.seed(1984)
 beta0 <- -1.6
 beta1 <- 0.03
 beta2 <- -1.0
@@ -149,6 +154,7 @@ p1 <- tb_lm2 |>
 ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
 #logistic regression model
+set.seed(1984)
 beta0 <- -1.6
 beta1 <- 0.03
 tb_glm <- tibble(
@@ -174,28 +180,51 @@ p1 <- tb_glm |>
   geom_hline(yintercept=c(0.4, 0.5, 0.6), linetype="dashed", color="gray")
 ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
-#decision tree
-tb_rf <- tibble(
-  x1 = ceiling(runif(20, min = 0, max = 4)),
-  x2 = ceiling(runif(20, min = 0, max = 2)),
-  x3 = ceiling(runif(20, min = 0, max = 2)),
-  z = x1 - (x2 + x3),
-  pi_y = exp(z)/(1 + exp(z)),
-  y = rbinom(20, size = 1, prob = pi_y)
-) |>
-  mutate(
-    across(c(x1:x3, y), as.factor)
-  )
-
-res_rf <- rpart(y ~ x1 + x2 + x3, data = tb_rf, method = "class",
-  control = rpart.control(minsplit = 5)
+#ml: data
+set.seed(1984)
+tb_ml <- tibble(
+  x1 = ceiling(runif(20, min=0, max=4)),    #x1 = {1, 2, 3, 4}
+  x2 = ceiling(runif(20, min=0, max=2)),    #x2 = {1, 2}
+  x3 = ceiling(runif(20, min=0, max=2)),    #x3 = {1, 2}
+  x = x1 - (x2 + x3),                       #x = [-3, 2]
+  pi_y = exp(x)/(1 + exp(x)),               #pi_y = [0, 1]
+  y = factor(rbinom(20, size=1, prob=pi_y)) #y = {0, 1}
 )
 
-f1 <- "media/fig7_rf.png"
+f1 <- "media/fig7_lm_data.png"
+p1 <- tb_ml |>
+  ggplot(aes(x=x1, y=y)) +
+  geom_jitter(height=0.05, width=0.05, alpha=0.5) +
+  facet_grid(x3 ~ x2, labeller = "label_both")
+p2 <- tb_ml |>
+  ggplot(aes(x=pi_y, y=y)) +
+  geom_jitter(height=0.05, width=0.05, alpha=0.5) +
+  geom_vline(xintercept=c(0, 0.5, 1), linetype=3, linewidth=0.5)
+p3 <- arrangeGrob(p1, p2, nrow = 1)
+ggsave(f1, p3, "png", width=21.0, height=11.3, units="cm", dpi=72)
+
+#ml: decision tree
+set.seed(1984)
+res_rf <- rpart(y ~ x1 + x2 + x3, data = tb_ml, method = "class",
+  control = rpart.control(minsplit = 5)
+)
+table(predict(res_rf, type="class"), tb_ml$y)
+
+f1 <- "media/fig8_lm_rf.png"
 png(f1, width = 17.2, height = 11.3, units = "cm", res = 72, type = "cairo")
 plot(res_rf, branch = 0, margin = 0.02, branch.lwd = 2, branch.col = "blue")
 text(res_rf, minlength = 2, use.n = TRUE, fancy = TRUE, fwidth = 1.5,
   fheight = 1, cex = 0.8, font = 2)
+dev.off()
+
+#ml: neural networks
+set.seed(1984)
+res_nnet <- nnet(y ~ x1 + x2 + x3, data = tb_ml, size = 1, trace = FALSE)
+table(predict(res_nnet, type="class"), tb_ml$y)
+
+f1 <- "media/fig9_lm_nnet.png"
+png(f1, width = 17.2, height = 11.3, units = "cm", res = 72, type = "cairo")
+plotnet(res_nnet, pos_col="blue", neg_col="red")
 dev.off()
 
 }
