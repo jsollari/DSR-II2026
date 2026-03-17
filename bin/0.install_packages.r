@@ -2,13 +2,14 @@
 #local:      INE, Lisboa
 #Rversion:   4.3.1
 #criado:     05.07.2023
-#modificado: 07.10.2024
+#modificado: 11.03.2026
 
 pack0 = c(
-  "performance",    #package of "easystats" to diagnose models
-  "see",            #package with toolbox for "easystats"
+  "tidyverse",      #collection of packages for "tidyverse"
   "rpart",          #package for decision tree models
-  "tidyverse"       #collection of packages for "tidyverse"
+  "rpart.plot",     #package for plotting decision tree models
+  "nnet",           #package for neural network models
+  "NeuralNetTools"  #package for tools to neural network models
 )
 
 pack1 = c(
@@ -26,8 +27,6 @@ pack3 = c(
   "dotwhisker",     #package for "dot whisker" plots
   "GGally",         #package for quick data visualization
   "glmnet",         #package for GLMs with penalized maxL
-  "nnet",           #package for neural network models
-  "NeuralNetTools", #package for tools to neural network models
   "ranger",         #package for random forest models
   "vip"             #package for "variable importance" plots for ML models
 )
