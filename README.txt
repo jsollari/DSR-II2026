@@ -39,11 +39,19 @@
   |DSR-II2026_JL_slides.pptx            #slides JL
   |DSR-II2026_program.docx              #program
 +media
-  |fig_assumptions.png                  #from "0.examples.r"
-  |fig_ggplot2.png                      #from "0.examples.r"
-  |fig_glm.png                          #from "0.examples.r"
-  |fig_mlr.png                          #from "0.examples.r"
-  |fig_rf.png                           #from "0.examples.r"
-  |fig_slr.png                          #from "0.examples.r"
+  |fig1_base.png                        #from "https://r4ds.hadley.nz/diagrams/data-science/base.png"
+  |fig2_ggplot2.png                     #example of ggplot2 use
+  |fig3_slr.png                         #example of Simple Linear Regression
+  |fig4_mlr.png                         #example of Multiple Linear Regression
+  |fig5_glm.png                         #example of Simple Logistic Regression
+  |fig6_ml_data.png                     #example of data set for Classification
+  |fig7_ml_rf1.png                      #example of a Decision Tree Model 1
+  |fig8_ml_rf2.png                      #example of a Decision Tree Model 2
+  |fig9_ml_nnet1.png                    #example of a Neural Network Model 1
+  |fig10_ml_nnet2.png                   #example of a Neural Network Model 2
+  |fig11_ROC_curve.png                  #from "https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Roc_curve.svg/800px-Roc_curve.svg.png"
+  |fig12_folder_tree.png                #example of folder structure
+  |fig13_github.png                     #from "https://github.com/jsollari/DSR-II2024"
+  |fig14_half-hour.png                  #from "https://hour.ine.pt/images/half-hour.png"
 |LICENSE.txt                            #Licenca de utilizacao MIT
 |README.txt                             #Este ficheiro

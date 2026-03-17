@@ -100,9 +100,6 @@ tb_lm2 <- tibble(
   x1 = runif(20, min=18, max=60),
   x2 = rbinom(20, size=1, prob=0.5),
   y = beta0 + beta1*x1 + beta2*x2 + rnorm(20, mean=0, sd=0.1)
-) |>
-  mutate(
-    x2 = factor(x2)
 )
 
 res_lm2 <- lm(y ~ x1 + x2, data=tb_lm2)
@@ -111,6 +108,7 @@ b <- res_lm2$coef
 f1 <- "media/fig4_mlr.png"
 p1 <- tb_lm2 |>
   mutate(
+    x2 = factor(x2),
     preds = predict(res_lm2),
     resids = residuals(res_lm2)
   ) |>
@@ -139,15 +137,18 @@ f1 <- "media/fig5_glm.png"
 p1 <- tb_glm |>
   mutate(
     preds = predict(res_glm, type="resp"),
+    class = if_else(preds >= 0.5, "1", "0"),
     resids = residuals(res_glm)
   ) |> 
   ggplot(aes(x=x, y=y)) +
   geom_point() +
   stat_smooth(method="glm", formula="y ~ x", se=FALSE, color="blue",
     method.args = list(family="binomial")) +
+  geom_point(aes(y=preds, color=class)) +
   geom_segment(aes(xend=x, yend=preds), color="red") +
   geom_hline(yintercept=c(0.4, 0.5, 0.6), linetype="dashed", color="darkgray") +
 # geom_vline(xintercept=-beta0/beta1, linetype="dotted", color="darkgray") +
+  labs(color = expression(widehat(y))) +
   theme_minimal()
 ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
