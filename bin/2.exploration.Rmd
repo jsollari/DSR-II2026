@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo=TRUE, eval=FALSE)
 ***
 \newpage
 
-## 1. SUMMARY STATISTICS
+# 1. SUMMARY STATISTICS
 
 [from https://r4ds.hadley.nz/numbers.html#numeric-summaries]
 
