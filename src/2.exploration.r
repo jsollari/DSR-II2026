@@ -2,7 +2,7 @@
 #local:      INE, Lisboa
 #Rversion:   4.3.1
 #criado:     17.07.2023
-#modificado: 07.01.2026
+#modificado: 09.04.2026
 
 # 0. INDEX
 {
@@ -40,7 +40,7 @@ flights |>
   geom_abline(slope = 1, intercept = 0, color = "white", linewidth = 2) +
   geom_point()
 
-### Minimum, maximum and quantiles
+### Location (Minimum, maximum and quantiles)
 flights |>
   group_by(year, month, day) |>
   summarize(
@@ -64,15 +64,39 @@ flights |>
   )
 
 ### Positions
+
+#create variable top_or_bottom in mutate
+flights |>
+  group_by(year, month, day) |> 
+  mutate(
+    r = row_number(sched_dep_time),
+    top_or_bottom = r %in% c(1, max(r)),
+    .keep = "used"
+  )
+
+#create variable inline
 flights |> 
   group_by(year, month, day) |> 
   mutate(r = row_number(sched_dep_time)) |> 
-  filter(r %in% c(1, max(r)))  
+  filter(r %in% c(1, max(r))) |>
+  ungroup()
 
 ### Distributions
+
+#create variable day_month in mutate
 flights |>
   filter(dep_delay < 120) |> 
-  ggplot(aes(x = dep_delay, group = interaction(day, month))) + 
+  mutate(day_month = interaction(day, month), .keep = "used")
+
+#create variable inline
+flights |>
+  filter(dep_delay < 120) |> 
+  ggplot(
+    aes(
+      x = dep_delay,                  #assign to aesthetic x-axis
+      group = interaction(day, month) #not assign to any aesthetic
+    )
+  ) + 
   geom_freqpoly(binwidth = 5, alpha = 1/5)
 
 }
@@ -116,28 +140,32 @@ ggplot(diamonds, aes(x = y)) +
 
 ## 2.2. UNUSUAL VALUES
 
-#look at the data "price", "x", "y" and "z"
+#look at unusual values in y
 diamonds |> 
-  filter(between(y, 3, 20)) |>         #filter out unusual values
-  select(price, x, y, z) |>
-  arrange(y)
+  filter(!between(y, 3, 20)) |>
+  select(y)
 
 #drop entire row of "unusual" data
-diamonds2 <- diamonds |> 
+diamonds |> 
   filter(between(y, 3, 20))
 
 #replacing "unusual" data with missing values
-diamonds2 <- diamonds |> 
-  mutate(y = if_else(y < 3 | y > 20, NA, y))
-diamonds2 |> filter(is.na(y)) |> select(price, x, y, z)
+diamonds |> 
+  mutate(y = if_else(!between(y, 3, 20), NA, y)) |>
+  filter(is.na(y)) |>
+  select(y)
 
-#look at relation between "x" and "y"
-ggplot(diamonds2, aes(x = x, y = y)) + 
-  geom_point()
+#visualize distribution of "y" without unusual values
+diamonds |> 
+  mutate(y = if_else(!between(y, 3, 20), NA, y)) |>
+  ggplot(aes(x = y)) + 
+  geom_histogram(binwidth = 0.5)
 
-#look at relation between "x" and "y" (turn off warning)
-ggplot(diamonds2, aes(x = x, y = y)) + 
-  geom_point(na.rm = TRUE)
+#visualize distribution of "y" without unusual values with warning off
+diamonds |> 
+  mutate(y = if_else(!between(y, 3, 20), NA, y)) |>
+  ggplot(aes(x = y)) + 
+  geom_histogram(binwidth = 0.5, na.rm = TRUE)
 
 #meaningless missing values
 diamonds |>
@@ -183,8 +211,16 @@ treatment |>
   fill(everything())
 
 ### Fixed values
+
+#if_else()
 treatment |>
-  mutate(response = coalesce(response, 0)) |>
+  mutate(response = if_else(is.na(response), 0, response)) |>
+  fill(everything())
+
+#coalesce()
+new_source <- c("Derrick Whitmore", "John Smith", "John Smith", NA)
+treatment |>
+  mutate(person = coalesce(person, new_source)) |>
   fill(everything())
 
 ### Numeric value represents NA
@@ -198,7 +234,11 @@ Katherine Burke,         1,        4"
 #deal with NAs when reading data
 read_csv(csv, na = "99")
 
-#deal with NAs after reading data
+#deal with NAs after reading data (if_else)
+read_csv(csv) |>
+  mutate(response = if_else(response == 99, NA, response))
+
+#deal with NAs after reading data (na_if)
 read_csv(csv) |>
   mutate(response = na_if(response, 99))
 
@@ -226,6 +266,7 @@ log(-1)
 Inf - Inf
 #undefined operations in trignometry
 asin(2)
+
 ## 3.2. IMPLICIT MISSING VALUES
 
 stocks <- tibble(
@@ -268,13 +309,13 @@ stocks |>
 ### Joins
 #obtain airport destinations not in database "airports"
 flights |> 
-  distinct(faa = dest) |>              #calculate the distinct "dest"
-  anti_join(airports)                  #obtain absent "dest"
+  distinct(dest) |>                              #calculate the distinct "dest"
+  anti_join(airports, by = join_by(dest == faa)) #obtain absent "dest"
 
 #obtain planes not in database "planes"
 flights |> 
-  distinct(tailnum) |>                 #calculate the distinct "dest"
-  anti_join(planes)                    #obtain absent "dest"
+  distinct(tailnum) |>                      #calculate the distinct "tailnum"
+  anti_join(planes, by = join_by(tailnum))  #obtain absent "tailnum"
 
 ## 3.3. FACTORS AND EMPTY GROUPS
 
@@ -297,6 +338,15 @@ ggplot(health, aes(x = smoker)) +
   scale_x_discrete(drop = FALSE)
 
 #empty groups with group_by()
+health |> 
+  group_by(smoker) |> 
+  summarize(
+    n = n(),
+    mean_age = mean(age),
+    min_age = min(age),
+    max_age = max(age),
+    sd_age = sd(age)
+  )
 health |> 
   group_by(smoker, .drop = FALSE) |> 
   summarize(
@@ -328,20 +378,34 @@ library("tidyverse")    #collection of packages for data analysis
 library("janitor")      #simple tools for examining and cleaning dirty data
 ## 4.1. CATEGORICAL AND NUMERICAL VARIABLES
 
+#use histogram()
+diamonds |>
+  mutate(cut = fct_rev(cut)) |>
+  ggplot(aes(x = price, fill = cut)) + 
+  geom_histogram(binwidth = 500, position = "identity")
+  
 #use geom_freqpoly()
-ggplot(diamonds, aes(x = price, color = cut)) + 
+diamonds |>
+  mutate(cut = fct_rev(cut)) |>
+  ggplot(aes(x = price, color = cut)) + 
   geom_freqpoly(binwidth = 500, linewidth = 0.75)
 
 #use geom_freqpoly() with densities
-ggplot(diamonds, aes(x = price, y = after_stat(density), color = cut)) + 
+diamonds |>
+  mutate(cut = fct_rev(cut)) |>
+  ggplot(aes(x = price, y = after_stat(density), color = cut)) + 
   geom_freqpoly(binwidth = 500, linewidth = 0.75)  
 
 #use geom_density()
-ggplot(diamonds, aes(x = price, color = cut)) + 
+diamonds |>
+  mutate(cut = fct_rev(cut)) |>
+  ggplot(aes(x = price, color = cut)) + 
   geom_density(bw = 500, linewidth = 0.75)  
 
 #use geom_boxplot()
-ggplot(diamonds, aes(x = cut, y = price)) +
+diamonds |>
+  mutate(cut = fct_rev(cut)) |>
+  ggplot(aes(x = cut, y = price, fill = cut)) +
   geom_boxplot()
 
 ## 4.2. TWO CATEGORICAL VARIABLES
@@ -381,10 +445,16 @@ diamonds |>
 ggplot(diamonds, aes(x = cut, fill = color)) +
   geom_bar()
 
+#geom_bar() with position = "fill"
+ggplot(diamonds, aes(x = cut, fill = color)) +
+  geom_bar(position = "fill")
+
 ## 4.3. TWO NUMERICAL VARIABLES
 
+set.seed(123)
 smaller <- diamonds |> 
-  filter(carat < 3)                    #filter in smaller diamonds
+  filter(carat < 3) |>               #filter in smaller diamonds
+  slice_sample(n = 2000)             #take random sample
 
 #geom_point()
 ggplot(smaller, aes(x = carat, y = price)) +
@@ -392,7 +462,7 @@ ggplot(smaller, aes(x = carat, y = price)) +
 
 #geom_point() with alpha
 ggplot(smaller, aes(x = carat, y = price)) + 
-  geom_point(alpha = 0.01)
+  geom_point(alpha = 0.1)
 
 #geom_bin2d()
 ggplot(smaller, aes(x = carat, y = price)) +
@@ -405,7 +475,9 @@ ggplot(smaller, aes(x = carat, y = price)) +
 #geom_boxplot()
 ggplot(smaller, aes(x = carat, y = price)) + 
   geom_boxplot(aes(group = cut_width(carat, 0.1)))
-  
+
+rm(smaller)
+
 }
 # 5. PATTERNS AND MODELS
 {
@@ -421,8 +493,8 @@ diamonds2 <- diamonds |>
     log_price = log(price),
     log_carat = log(carat)
   ) |>
-  #take sample of 1000 observations
-  slice_sample(n = 1000)
+  #take sample of 2000 observations
+  slice_sample(n = 2000)
 
 #look at relation log(price) ~ log(carat)
 diamonds2 |>
@@ -434,22 +506,26 @@ diamonds_fit <- linear_reg() |>
   set_engine("lm") |>
   fit(formula = log_price ~ log_carat, data = diamonds2)
 
-#function tidy()  
+#function tidy()
+methods(tidy)
 tidy(diamonds_fit)
 
 #function glance()
+methods(glance)
 glance(diamonds_fit)
 
 #function augment()
-diamonds_aug <- augment(diamonds_fit, new_data = diamonds2) |>
-  mutate(.resid = exp(.resid))
+methods(augment)
+diamonds_aug <- augment(diamonds_fit, new_data = diamonds2)
 
-#unexplained variation in "price" using "carat"
-ggplot(diamonds_aug, aes(x = carat, y = .resid)) + 
+#unexplained variation in "log_price"
+ggplot(diamonds_aug, aes(x = .pred, y = .resid)) + 
   geom_point()
 
-#modelling unexplained variation in "price" using "cut"
+#modelling unexplained variation in "log_price" using "cut"
 ggplot(diamonds_aug, aes(x = cut, y = .resid)) + 
   geom_boxplot()
+
+rm(diamonds2, diamonds_fit, diamonds_aug)
 
 }

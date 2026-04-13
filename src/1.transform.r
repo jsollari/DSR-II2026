@@ -2,7 +2,7 @@
 #local:      INE, Lisboa
 #Rversion:   4.3.1
 #criado:     05.07.2023
-#modificado: 05.01.2026
+#modificado: 06.04.2026
 
 # 0. INDEX
 {
@@ -65,7 +65,7 @@ flights |> count(tailnum, wt = distance)
 
 flights |> 
   group_by(tailnum) |> 
-  summarize(miles = sum(distance))  
+  summarize(total_dist = sum(distance))  
 
 #count missing values
 flights |> 
@@ -101,13 +101,12 @@ round(123.456)
 
 #round to nearest n digit
 round(123.456, 2)  # two digits
-round(123.456, 1)  # one digit
 round(123.456, -1) # round to nearest ten
-round(123.456, -2) # round to nearest hundred
 
-#floor() vs ceiling()
+#rounding off a 5 to the even digit
 round(c(1.5, 2.5))
 
+#floor() vs ceiling()
 x <- 123.456
 floor(x)
 ceiling(x)
@@ -125,14 +124,19 @@ round(x / 0.25) * 0.25 # round to nearest 0.25
 #simple cut
 x <- c(1, 2, 6, 8, 10, 12)
 cut(x, breaks = c(0, 5, 10, 15))
+
+#cut with labels
 cut(x, 
     breaks = c(0, 5, 10, 15), 
-    labels = c("sm", "md", "lg")
+    labels = c("small", "medium", "large")
 )
 
 #cut with values outside the range
 y <- c(NA, -10, 6, 8, 200)
-cut(y, breaks = c(0, 5, 10, 15))
+cut(y, 
+    breaks = c(0, 5, 10, 15), 
+    labels = c("small", "medium", "large")
+)
 
 ### Cumulative and rolling aggregates
 df <- tibble(
@@ -157,7 +161,7 @@ df |> mutate(cummax_x = cummax(x), cummax_y = cummax(y))
 ### Ranks
 
 #simple ranks
-x <- c(1, 2, 2, 3, 4, NA)
+x <- c(9, 2, 2, 5, 1, NA)
 min_rank(x)
 min_rank(desc(x))
 
@@ -165,26 +169,14 @@ min_rank(desc(x))
 df <- tibble(x = x)
 df |> 
   mutate(
+    #common ranks
     min_rank = min_rank(x),
     row_number = row_number(x),
     dense_rank = dense_rank(x),
-    percent_rank = percent_rank(x),
-    cume_dist = cume_dist(x)
-  )
-
-#using ranks to divide data
-df <- tibble(id = 1:10)
-
-df |> 
-  mutate(
-    row0 = row_number() - 1,
-    three_groups = row0 %% 3
-  )
-
-df |>
-  mutate(
-    row0 = row_number() - 1,
-    three_in_each_group = row0 %/% 3
+    #percentage of values less than x
+    perc_rank = percent_rank(x),
+    #percentage of values less than or equal to x
+    cum_dist = cume_dist(x),
   )
 
 ### Offsets
@@ -251,9 +243,6 @@ gss_cat
 
 #look at factors
 gss_cat |>
-  count(marital)
-
-gss_cat |>
   count(rincome)
 
 gss_cat |>
@@ -290,37 +279,40 @@ relig_summary |>
 rincome_summary <- gss_cat |>
   group_by(rincome) |>
   summarize(
-    age = mean(age, na.rm = TRUE),
+    mean_age = mean(age, na.rm = TRUE),
     n = n()
   )
 
-ggplot(rincome_summary, aes(x = age, y = fct_reorder(rincome, age))) + 
-  geom_point()
-
-ggplot(rincome_summary, aes(x = age, y = fct_relevel(rincome, "Not applicable"))) +
-  geom_point()
-
-#fct_reorder2()
-by_age <- gss_cat |>
-  filter(!is.na(age)) |> 
-  count(age, marital) |>
-  group_by(age) |>
+rincome_summary |>
   mutate(
-    prop = n / sum(n)
-  )
+    rincome = fct_reorder(rincome, mean_age)
+  ) |>
+  ggplot(aes(x = mean_age, y = rincome)) + 
+  geom_point()
 
-ggplot(by_age, aes(x = age, y = prop, color = marital)) +
-  geom_line(linewidth = 1) + 
-  scale_color_brewer(palette = "Set1")
+rincome_summary |>
+  ggplot(aes(x = mean_age, y = rincome)) + 
+  geom_point()
 
-ggplot(by_age, aes(x = age, y = prop, color = fct_reorder2(marital, age, prop))) +
-  geom_line(linewidth = 1) +
-  scale_color_brewer(palette = "Set1") + 
-  labs(color = "marital") 
+rincome_summary |>
+  mutate(
+    rincome = fct_relevel(rincome, "Not applicable")
+  ) |>
+  ggplot(aes(x = mean_age, y = rincome)) +
+  geom_point()
 
 #fct_infreq() and fct_rev()
 gss_cat |>
-  mutate(marital = marital |> fct_infreq() |> fct_rev()) |>
+  ggplot(aes(x = marital)) +
+  geom_bar()
+
+gss_cat |>
+  mutate(
+    marital = fct_infreq(marital),
+    marital = fct_rev(marital),
+#   marital = fct_rev(fct_infreq(marital)),
+#   marital = marital |> fct_infreq() |> fct_rev()
+  ) |>
   ggplot(aes(x = marital)) +
   geom_bar()
  
@@ -354,7 +346,8 @@ gss_cat |>
       "Other"                 = "Don't know",
       "Other"                 = "Other party"
     )
-  )
+  ) |>
+  count(partyid)
 
 #combine levels using fct_collapse()
 gss_cat |>
@@ -370,11 +363,13 @@ gss_cat |>
 
 #lump unfrequent groups using fct_lump_lowfreq()
 gss_cat |>
+  #lump least frequent into "other", while "other" is less than 50%
   mutate(relig = fct_lump_lowfreq(relig)) |>
   count(relig)
 
 #lump unfrequent groups using fct_lump_n()
 gss_cat |>
+  #lump everything except n most frequent
   mutate(relig = fct_lump_n(relig, n = 10)) |>
   count(relig, sort = TRUE)
   
@@ -415,16 +410,17 @@ flights |>
 ## 3.2. BOOLEAN ALGEBRA
 
 ### Boolean operations
-x <- c(rep(TRUE,6),rep(FALSE,3))
-y <- c(rep(FALSE,3),rep(TRUE,6))
-tibble(id = c(1:9), x, y)
+more_3 <- c(rep(FALSE,3),rep(TRUE,6))
+less_7 <- c(rep(TRUE,6),rep(FALSE,3))
+tibble(id = c(1:9), more_3, less_7)
 
-which(x)         #x 
-which(y)         #y
-which(x & !y)    #x & !y
-which(!x & y)    #!x & y
-which(xor(x, y)) #xor(x, y)
-which(x | y)     # x | y
+which(more_3)              #more_3
+which(less_7)              #less_7 
+which(more_3 & less_7)     #more_3 & less_7
+which(!more_3 & less_7)    #!more_3 & less_7
+which(more_3 & !less_7)    #more_3 & !less_7
+which(xor(more_3, less_7)) #!(more_3 & less_7)
+which(more_3 | less_7)     #less_7 | more_3
 
 ### Missing values  
 df <- tibble(x = c(TRUE, FALSE, NA), `NA` = NA)
@@ -451,7 +447,7 @@ c(1, 2, NA) %in% 1
 flights |> 
   group_by(year, month, day) |> 
   summarize(
-    all_delayed = all(dep_delay <= 60, na.rm = TRUE),
+    all_not_delayed = all(dep_delay <= 60, na.rm = TRUE),
     any_long_delay = any(arr_delay >= 300, na.rm = TRUE),
     .groups = "drop"
   )
@@ -460,17 +456,17 @@ flights |>
 flights |> 
   group_by(year, month, day) |> 
   summarize(
-    proportion_delayed = mean(dep_delay <= 60, na.rm = TRUE),
+    prop_not_delayed = mean(dep_delay <= 60, na.rm = TRUE),
     count_long_delay = sum(arr_delay >= 300, na.rm = TRUE),
     .groups = "drop"
   )
-  
+
 #logical subsetting
 flights |> 
   filter(arr_delay > 0) |> 
   group_by(year, month, day) |> 
   summarize(
-    behind = mean(arr_delay),
+    mean_behind = mean(arr_delay),
     n = n(),
     .groups = "drop"
   )
@@ -478,16 +474,17 @@ flights |>
   filter(arr_delay < 0) |> 
   group_by(year, month, day) |> 
   summarize(
-    behind = mean(arr_delay),
+    mean_ahead = mean(arr_delay),
     n = n(),
     .groups = "drop"
   )
 
 flights |> 
+  filter(!is.na(arr_delay)) |> 
   group_by(year, month, day) |> 
   summarize(
-    behind = mean(arr_delay[arr_delay > 0], na.rm = TRUE),
-    ahead = mean(arr_delay[arr_delay < 0], na.rm = TRUE),
+    mean_behind = mean(arr_delay[arr_delay > 0]),
+    mean_ahead = mean(arr_delay[arr_delay < 0]),
     n = n(),
     .groups = "drop"
   )
@@ -498,40 +495,48 @@ flights |>
 
 #simple if_else()
 x <- c(-3:3, NA)
-if_else(x > 0, "is_pos", "is_neg")
-if_else(x > 0, "is_pos", "is_neg", "is_???")
+x
+if_else(x < 0, "is_neg", "is_pos")
+if_else(x < 0, "is_neg", "is_pos", "is_???")
 if_else(x < 0, -x, x)
 
 #sequence of if_else()
-if_else(x == 0, "0",
-if_else(x < 0, "is_neg",
-               "is_pos"),
-               "is_???")
+if_else(x == 0,
+        "0",
+        if_else(x < 0,
+                "is_neg",
+                "is_pos"),
+                "is_???")
 
 ### Function case_when()
+
+#simple case_when()
 case_when(
   x == 0   ~ "0",
   x < 0    ~ "is_neg",
   x > 0    ~ "is_pos",
-  is.na(x) ~ "is_???"
+  .default = "is_???"
 )
 
+#case_when(): incorrect order
 case_when(
-  x < 0 ~ "is_neg",
-  x > 0 ~ "is_pos",
+  x == 0   ~ "0",
+  x < 0    ~ "is_neg",
+  x > 0    ~ "is_pos",
+  x > 2    ~ "is_big",
+  .default = "is_???"
 )
 
+#case_when(): correct order
 case_when(
-  x < 0 ~ "is_neg",
-  x > 0 ~ "is_pos",
-  TRUE  ~ "is_???"
+  x == 0   ~ "0",
+  x < 0    ~ "is_neg",
+  x > 2    ~ "is_big",
+  x > 0    ~ "is_pos",
+  .default = "is_???"
 )
 
-case_when(
-  x > 0 ~ "is_pos",
-  x > 2 ~ "is_big"
-)
-
+#case_when() inside mutate
 flights |> 
   mutate(
     status = case_when(
@@ -539,18 +544,10 @@ flights |>
       arr_delay < -30       ~ "very early",
       arr_delay < -15       ~ "early",
       abs(arr_delay) <= 15  ~ "on time",
-      arr_delay < 60        ~ "late",
+      arr_delay < 30        ~ "late",
       arr_delay < Inf       ~ "very late",
     ),
     .keep = "used"
   )
-
-### Compatible types
-if_else(TRUE, "a", 1)
-
-case_when(
-  x < -1 ~ TRUE,  
-  x > 0  ~ now()
-)
 
 }

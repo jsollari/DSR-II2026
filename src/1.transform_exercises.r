@@ -2,7 +2,7 @@
 #local:      INE, Lisboa
 #Rversion:   4.3.1
 #criado:     05.01.2023
-#modificado: 06.01.2026
+#modificado: 08.04.2026
 
 # 0. INDEX
 {
@@ -42,64 +42,63 @@ library("tidyverse")
 ## 1.2. NUMERIC TRANSFORMATION
 
 # a) Explain in words what each line of the following code does:
-#flights |> 
-#  group_by(hour = sched_dep_time %/% 100) |> 
-#  summarize(prop_cancelled = mean(is.na(dep_time)), n = n()) |> 
-#  filter(hour > 1) |> 
-#  ggplot(aes(x = hour, y = prop_cancelled)) +
-#  geom_line(color = "grey50") + 
-#  geom_point(aes(size = n))
-
-# b) Currently dep_time and sched_dep_time are convenient to look at, but hard
-# to compute with because they’re not really continuous numbers. You can see the
-# basic problem by running the code below: there’s a gap between each hour.
-#    flights |> 
-#      filter(month == 1, day == 1, !is.na(dep_delay)) |> 
-#      ggplot(aes(x = sched_dep_time, y = dep_delay)) +
-#      geom_point()
-#    Convert them to a more truthful representation of time (either fractional
+# flights |> 
+#   group_by(hour = sched_dep_time %/% 100) |> 
+#   summarize(prop_cancelled = mean(is.na(dep_time)), n = n()) |> 
+#   filter(hour > 1) |> 
+#   ggplot(aes(x = hour, y = prop_cancelled)) +
+#   geom_line(color = "grey50") + 
+#   geom_point(aes(size = n))
+# b) Currently dep_time is convenient to look at, but hard to compute with
+# because it’s not really a continuous numbers. You can see the basic problem by
+# running the code below: there’s a gap between each hour.
+# flights |> 
+#   filter(month == 1, day == 1, !is.na(dep_delay)) |> 
+#   ggplot(aes(x = dep_time, y = dep_delay)) +
+#   geom_point()
+# Convert them to a more truthful representation of time (either fractional
 # hours or minutes since midnight).
   
-# c) Round dep_time and arr_time to the nearest five minutes
+# c) Round dep_time to the nearest five minutes
 
 ## 1.3. GENERAL TRANSFORMATION
 
-# a) Find the 12 most delayed flights using a ranking function. How do you want
-# to handle ties? Carefully read the documentation for min_rank().
+# a) Find the 12 most delayed flights (in departure) using a ranking function.
+# How do you want to handle ties? Carefully read the documentation for 
   
-# b) Which plane (tailnum) has the worst on-time record?
+# b) Which plane (tailnum) has the worst on-time record? Use dep_delay.
 
 # c) At which hour should you fly if you want to avoid more than one hour delays
-# as much as possible?
+# in departure as much as possible?
   
 # d) What does flights |> group_by(dest) |> filter(row_number() < 4) do? What
-# does flights |> group_by(dest) |> filter(row_number(dep_delay) < 4) do?
+# does flights |> group_by(dest) |> filter(row_number(desc(dep_delay)) < 4) do?
  
-# e) For each destination, compute the total minutes of delay. For each flight,
-# compute the proportion of the total delay for its destination.
-
+# e) For each destination, compute the total minutes of delay. For each flight 
+# (from a given carrier, origin and destination), compute the proportion of the
+# total delay for its destination. Consider only positive departure delays.
 # f) Delays are typically temporally correlated: even once the problem that
 # caused the initial delay has been resolved, later flights are delayed to allow
 # earlier flights to leave. Using lag(), explore how the average flight delay
-# for an hour is related to the average delay for the previous hour.
-#   flights |> 
-#     mutate(hour = dep_time %/% 100) |> 
-#     group_by(year, month, day, hour) |> 
-#     summarize(
-#       dep_delay = mean(dep_delay, na.rm = TRUE),
-#       n = n(),
-#       .groups = "drop"
-#     ) |> 
-#     filter(n > 5)
-
-# g) Look at each destination. Can you find flights that are suspiciously fast 
-# (i.e. flights that represent a potential data entry error)? Compute the air 
-# time of a flight relative to the shortest flight to that destination. Which
-# flights were most delayed in the air?
-  
+# for an hour is related to the average delay for the previous hour (e.g. plot,
+# correlation). Use the following data set:
+# flight_ymdh <-  flights |> 
+#   filter(!is.na(dep_delay)) |>
+#   mutate(hour = dep_time %/% 100) |> 
+#   group_by(year, month, day, hour) |> 
+#   summarize(
+#     n = n(),
+#     mean_dep_delay = mean(dep_delay),
+#     .groups = "drop"
+#   )
+# Consider only average delays with at least 5 observations.
+# g) Look at each origin and destination. Can you find flights that are
+# suspiciously fast (i.e. flights that represent a potential data entry error)?
+# Compute the air time of a flight relative to the shortest flight to that
+# destination. Which flights were most delayed in the air?
 # h) Find all destinations that are flown by at least two carriers. Use those
 # destinations to come up with a relative ranking of the carriers based on their
-# performance for the same destination.
+# performance (i.e. smaller air_time) for the same origin and destination.
 
 }
 # 2. FACTORES
@@ -145,7 +144,7 @@ library("tidyverse")
 library("nycflights13")
 library("tidyverse")
 
-# 3.1. Comparison
+# 3.1. COMPARISON
 
 # a) How does dplyr::near() work? Type near to see the source code. 
 # Is sqrt(2)^2 near 2?
@@ -153,21 +152,21 @@ library("tidyverse")
 # b) Use mutate(), is.na(), and count() together to describe how the missing
 # values in dep_time, sched_dep_time and dep_delay are connected.
   
-# 3.2. Boolean algebra
+# 3.2. BOOLEAN ALGEBRA
 
 # a) Find all flights where arr_delay is missing but dep_delay is not. Find all
 # flights where neither arr_time nor sched_arr_time are missing, but arr_delay
 # is.
   
 # b) How many flights have a missing dep_time? What other variables are missing 
-#in these rows? What might these rows represent?
+# in these rows? What might these rows represent?
 
 # c) Assuming that a missing dep_time implies that a flight is cancelled, look
 # at the number of cancelled flights per day. Is there a pattern? Is there a 
 # connection between the proportion of cancelled flights and the average delay
 # of non-cancelled flights?
 
-# 3.3. Summaries
+# 3.3. SUMMARIES
 
 # a) What will sum(is.na(x)) tell you? How about mean(is.na(x))?
 
@@ -176,7 +175,7 @@ library("tidyverse")
 # logical vector? What logical summary function is it equivalent to? Read the
 # documentation and perform a few experiments.
 
-# 3.4. Conditional transformations
+# 3.4. CONDITIONAL TRANSFORMATIONS
 
 # a) A number is even if it’s divisible by two, which in R you can find out with
 # x %% 2 == 0. Use this fact and if_else() to determine whether each number

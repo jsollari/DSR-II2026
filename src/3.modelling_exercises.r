@@ -2,7 +2,7 @@
 #local:      INE, Lisboa
 #Rversion:   4.3.1
 #criado:     26.09.2024
-#modificado: 22.01.2026
+#modificado: 06.04.2026
 
 # 0. INDEX
 {
@@ -210,6 +210,6 @@ library("tidyverse")
 # a) Choose the best neural network model and evaluated it using the test data
 # created before. For the evaluation, consider the ROC curve and the AUC. Finish
 # the analysis by plotting the most important features (i.e. predictors) of the 
-# final model. Set the importance parameter of the engine to "impurity".
+# final model.
   
 }

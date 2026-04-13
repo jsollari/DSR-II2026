@@ -69,11 +69,10 @@ library("NeuralNetTools")
 
 ## 3.1. SIMPLE LINEAR REGRESSION
 set.seed(1984)
-beta0 <- -1.6
-beta1 <- 0.03
+beta <- c(-1.6, 0.03)
 tb_lm <- tibble(
   x = runif(20, min=18, max=60),
-  y = beta0 + beta1*x + rnorm(20, mean=0, sd=0.1)
+  y = beta[1] + beta[2]*x + rnorm(20, mean=0, sd=0.1)
 )
 
 res_lm <- lm(y ~ x, data=tb_lm)
@@ -93,17 +92,15 @@ ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
 ## 3.2. MULTIPLE LINEAR REGRESSION
 set.seed(1984)
-beta0 <- -1.6
-beta1 <- 0.03
-beta2 <- -1.0
+beta <- c(-1.6, 0.03, -1.0)
 tb_lm2 <- tibble(
   x1 = runif(20, min=18, max=60),
   x2 = rbinom(20, size=1, prob=0.5),
-  y = beta0 + beta1*x1 + beta2*x2 + rnorm(20, mean=0, sd=0.1)
+  y = beta[1] + beta[2]*x1 + beta[3]*x2 + rnorm(20, mean=0, sd=0.1)
 )
 
 res_lm2 <- lm(y ~ x1 + x2, data=tb_lm2)
-b <- res_lm2$coef
+b <- coef(res_lm2)
 
 f1 <- "media/fig4_mlr.png"
 p1 <- tb_lm2 |>
@@ -122,11 +119,10 @@ ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
 ## 3.3. LOGISTIC REGRESSION MODEL
 set.seed(1984)
-beta0 <- -6
-beta1 <- 0.15
+beta <- c(-6, 0.15)
 tb_glm <- tibble(
   x = runif(20, min=18, max=60),
-  z = beta0 + beta1*x,             # z = [-Inf, Inf]
+  z = beta[1] + beta[2]*x,         # z = [-Inf, Inf]
   p_y = exp(z)/(1 + exp(z)),       # p_y = [0, 1]
   y = rbinom(20, size=1, prob=p_y) # y = {0, 1}
 )
@@ -156,20 +152,18 @@ ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
 #data
 set.seed(1984)
-beta0 <- -6
-beta1 <- 0.25
-beta2 <- -0.1
+beta <- c(-6, 0.25, -0.1)
 tb_ml <- tibble(
   x1 = runif(40, min=18, max=60),
   x2 = runif(40, min=18, max=60),
-  z = beta0 + beta1*x1 + beta2*x2,
+  z = beta[1] + beta[2]*x1 + beta[3]*x2,
   p_y = exp(z)/(1 + exp(z)),
   y = factor(rbinom(40, size=1, prob=p_y))
 )
 
 f1 <- "media/fig6_ml_data.png"
-b <- -beta0/beta2 #intercept
-m <- -beta1/beta2 #slope
+b <- -beta[1]/beta[3] #intercept
+m <- -beta[2]/beta[3] #slope
 p1 <- tb_ml |>
   ggplot(aes(x=x1, y=x2, color=y)) +
   geom_point() +
@@ -181,7 +175,10 @@ ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 #decision tree
 res_rf <- rpart(
   y ~ x1 + x2, data = tb_ml, method = "class", 
-  control = rpart.control(minsplit = 6)
+  control=rpart.control(
+    minsplit=6,          #minimum number of observations for a split
+    minbucket=2,         #minimum number of observations in a leaf
+    maxdepth=30)         #maximum depth of the tree
 )
 table(predict(res_rf, type="class"), tb_ml$y)
 
@@ -200,7 +197,7 @@ tb_rect <- tibble(
   xmax =  c(splits[1],       Inf, splits[2], splits[4], splits[2]),
   ymin =  c(     -Inf,      -Inf,      -Inf, splits[3], splits[3]),
   ymax =  c(      Inf,       Inf, splits[3],       Inf,       Inf),
-  fill =  c(      "0",       "1",       "1",       "0",       "1")
+  fill =  c(      "0",       "1",       "1",       "1",       "0")
 )
 tb_segm <- tibble(
   x =    c(splits[1], splits[2], splits[1], splits[4]),
@@ -226,7 +223,11 @@ ggsave(f1, p1, "png", width=17.2, height=11.3, units="cm", dpi=72)
 
 #neural networks
 set.seed(1981)
-res_nnet <- nnet(y ~ x1 + x2, data=tb_ml, size=1, trace=FALSE)
+res_nnet <- nnet(y ~ x1 + x2, data=tb_ml,
+  size=1,   #number of units in hidden layer
+  decay=0,  #weigth decay
+  maxit=100 #maximum number of iterations
+  )
 table(predict(res_nnet, type="class"), tb_ml$y)
 
 f1 <- "media/fig9_ml_nnet1.png"
@@ -234,7 +235,7 @@ png(f1, width = 17.2, height = 11.3, units = "cm", res = 72, type = "cairo")
 plotnet(res_nnet, bord_col="black", pos_col="black", neg_col="gray")
 text(c(-0.15, 0.65), 0.9, round(res_nnet$wts[c(1, 4)], 1)) #Bias
 text(-0.6, c(0.8, 0.2), round(res_nnet$wts[2:3], 1))       #Input
-text(0.2, 0.6, round(res_nnet$wts[5], 1))                  #Output
+text(0.2, 0.6, round(res_nnet$wts[5], 1))                  #Hidden
 dev.off()
 
 f1 <- "media/fig10_ml_nnet2.png"

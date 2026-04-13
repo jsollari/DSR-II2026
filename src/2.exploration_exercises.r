@@ -2,7 +2,7 @@
 #local:      INE, Lisboa
 #Rversion:   4.3.1
 #criado:     05.07.2023
-#modificado: 08.01.2026
+#modificado: 09.04.2026
 
 # 0. INDEX
 {
@@ -96,7 +96,14 @@ library("janitor")
 ## 4.1. CATEGORICAL AND NUMERICAL VARIABLES
 
 # a) Use what you’ve learned to improve the visualization of the departure times
-# of cancelled vs. non-cancelled flights.  
+# of cancelled vs. non-cancelled flights. Consider the following data set.
+#flights2 <- flights |>
+#  mutate(
+#    cancelled = is.na(dep_time),
+#    sched_hour = sched_dep_time %/% 100,
+#    sched_min = sched_dep_time %% 100,
+#    sched_dep_time = sched_hour + sched_min / 60
+#  )  
 
 # b) What variable in the diamonds dataset is most important for predicting the
 # price of a diamond? How is that variable correlated with cut? Why does the
@@ -104,8 +111,8 @@ library("janitor")
 # more expensive?
 
 # c) One problem with boxplots is that they were developed in an era of much
-# smaller datasets and tend to display a prohibitively large number of “outlying
-# values”. One approach to remedy this problem is the letter value plot. Install
+# smaller datasets and tend to display a prohibitively large number of "outlying
+# values". One approach to remedy this problem is the letter value plot. Install
 # the lvplot package, and try using geom_lv() to display the distribution of
 # price vs. cut. What do you learn? How do you interpret the plots?
 

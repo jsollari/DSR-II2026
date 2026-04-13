@@ -1,35 +1,37 @@
----
-title: "3.modelling"
-author: "Joao Lopes"
-date: "2026-03-25"
-output:
-  pdf_document: default
-  html_document: default
----
+#autor:      Joao Sollari Lopes
+#local:      INE, Lisboa
+#Rversion:   4.3.1
+#criado:     17.07.2023
+#modificado: 06.04.2026
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, eval=FALSE)
+# 0. INDEX
+{
+# 1. BUILD A SIMPLE MODEL
+# 1.1. LOOK AT DATA
+# 1.2. FIT AND EVALUATE MODEL
+# 1.4. USE MODEL TO PREDICT
+# 2. BUILD A MODEL USING WORKFLOW
+# 2.1. LOOK AT DATA
+# 2.2. SPLIT DATA
+# 2.3. CREATE MODEL
+# 2.4. CREATE RECIPE
+# 2.5. CREATE WORKFLOW
+# 2.6. FIT A MODEL
+# 2.7. EVALUATE MODEL
+# 3. BUILD VARIOUS MODELS USING WORKFLOW
+# 3.1. LOOK AT DATA
+# 3.2. SPLIT DATA
+# 2.3. CREATE WORKFLOW AND TUNE MODEL 1
+# 3.4. CREATE WORKFLOW AND TUNE MODEL 2
+# 3.5. FIT AND EVALUATE BEST MODEL
 
-```
-
-\newpage
-
-\tableofcontents
-
-***
-\newpage
-
+}
 # 1. BUILD A MODEL
-
-[from https://www.tidymodels.org/start/models/]
-
-**Problem\:** Predict the price of a diamond.
-
-**Formula\:** price \~ carat \+ cut
-
-**Model\:** lm()
-
-```{r 1_build, warning=FALSE, message=FALSE}
+{
+#from https://www.tidymodels.org/start/models/
+# Problem: Predict the price of a diamond
+# Formula: price ~ carat + cut
+# Model: lm()
 library("skimr")       #function skim() for descriptive statistics
 library("GGally")      #function ggpairs() for data visualization
 library("hexbin")      #function geom_hex() for data visualization
@@ -40,56 +42,43 @@ library("tidyverse")   #collection of packages for data analysis
 
 tidyverse_conflicts()
 tidymodels_conflicts()
-```
 
 ## 1.1. LOOK AT DATA
 
-```{r 1_1_1_build}
 #loading data and making changes
 set.seed(123)
 lev_cut = c("Fair", "Good", "Very Good", "Premium", "Ideal")
-diamonds_data <- diamonds |>
+diamond_data <- diamonds |>
   mutate(
-    log_price = log(price),
-    log_carat = log(carat),
-    cut = fct(as.character(cut), levels = lev_cut),
+    log_price = log(price),                         #log transform
+    log_carat = log(carat),                         #log transform
+    cut = fct(as.character(cut), levels = lev_cut), #drop Ordered information
     .keep = "used"
   ) |>
   slice_sample(n = 1000)
 
 #inspect data
-glimpse(diamonds_data)
+glimpse(diamond_data)
 
 #descriptive statistics
-skim(diamonds_data)
+skim(diamond_data)
 
-```
-
-```{r 1_1_2_1_build, warning=FALSE, fig.height=8, fig.width=8}
 #data visualization 1
-diamonds_data |> 
+diamond_data |> 
   select(-c(carat, price)) |>
   ggpairs(progress = FALSE)
 
-```
-
-```{r 1_1_2_2_build, fig.height=8, fig.width=5}
 #data visualization 2
-ggplot(diamonds_data, aes(x = log_carat, y = log_price)) +
+ggplot(diamond_data, aes(x = log_carat, y = log_price)) +
   geom_hex() +
   facet_wrap(~cut, ncol = 1)
-```
 
-```{r 1_1_2_3_build}
 #data visualization 3
-ggplot(diamonds_data, aes(x = log_carat, y = log_price, color = cut)) +
+ggplot(diamond_data, aes(x = log_carat, y = log_price, color = cut)) +
   geom_smooth(method = "lm", formula = "y ~ x")
 
-```
+## 1.2. FIT AND EVALUATE MODEL
 
-## 1.2. FIT A MODEL
-
-```{r 1_2_1_build, eval=FALSE}
 #set functional form
 ?linear_reg
 
@@ -98,50 +87,42 @@ ggplot(diamonds_data, aes(x = log_carat, y = log_price, color = cut)) +
 
 #perform fit
 ?fit.model_spec()
-```
 
-```{r 1_2_2_build}
 #fit model
 t1 <- Sys.time()
-lm_fit <- linear_reg() |>
+diamond_fit <- linear_reg() |>
   set_engine("lm") |>
-  fit(formula = log_price ~ log_carat + cut, data = diamonds_data)
+  fit(formula = log_price ~ log_carat + cut, data = diamond_data)
 Sys.time() - t1
+#Time difference of 0.00621891 secs
 
 #analyse model (classic regression table)
-tidy(lm_fit)
-glance(lm_fit)
+tidy(diamond_fit)
+glance(diamond_fit)
+
+## 1.3. EVALUATE MODEL
 
 #predict using same data used for the fitting
-diamonds_data_aug <- augment(lm_fit, new_data = diamonds_data)
-diamonds_data_aug
+diamond_aug <- augment(diamond_fit, new_data = diamond_data)
+diamond_aug
 
 #evaluate model using R-square (over evaluation)
-diamonds_data_aug |>
+diamond_aug |>
   rsq(truth = log_price, estimate = .pred)
 
 #evaluate model using RMSE (over evaluation)
-diamonds_data_aug |>
+diamond_aug |>
   yardstick::rmse(truth = log_price, estimate = .pred)
 
 #plot results
-tidy(lm_fit) |>
-  dwplot(
-    dot_args = list(size = 2, color = "black"),
-    whisker_args = list(color = "black"),
-    vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
+tidy(diamond_fit) |>
+  dwplot(vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
 
-```
-
-```{r 1_2_3_build, fig.height=8}
 #check MLR assumptions
-check_model(lm_fit$fit)
-
-```
+check_model(diamond_fit$fit)
 
 ## 1.3. USE MODEL TO PREDICT
 
-```{r 1_3_build}
 #create new points
 new_points <- expand.grid(
   log_carat = log(2),
@@ -149,52 +130,42 @@ new_points <- expand.grid(
   )
 new_points
 
-#get prediction
-mean_pred <- predict(lm_fit, new_data = new_points)
+#get prediction in log scale
+mean_pred <- predict(diamond_fit, new_data = new_points)
 mean_pred
 
-#get confidence interval
-conf_int_pred <- predict(lm_fit, new_data = new_points, type = "conf_int")
+#get confidence interval in log scale
+conf_int_pred <- predict(diamond_fit, new_data = new_points, type = "conf_int")
 conf_int_pred
 
-#plot points
+#plot points in natural scale
+k <- exp(glance(diamond_fit)$sigma^2/2) #unbiased constant for log-transf
 new_points |> 
   bind_cols(mean_pred, conf_int_pred) |>
   ggplot(aes(x = cut)) + 
-  geom_point(aes(y = exp(.pred))) + 
+  geom_point(aes(y = k*exp(.pred))) + 
   geom_errorbar(
-    aes(ymin = exp(.pred_lower), ymax = exp(.pred_upper)),
+    aes(ymin = k*exp(.pred_lower), ymax = k*exp(.pred_upper)),
     width = .2
   ) + 
   labs(x = "diamond cut", y = "diamond price")
-
-```
-
-***
-\newpage
-
+  
+}
 # 2. BUILD A MODEL USING WORKFLOW
-
-[from https://www.tidymodels.org/start/recipes/]
-
-**Problem\:** Predict if a flight is going to arrive late.
-
-**Formula\:** arr_delay \~ air_time \+ dep_time \+ distance \+ carrier \+ dest \+ origin \+ date_dow \+ date_month \+ date_USholiday
-
-**Model\:** glm(family \= binomial(link \= "logit"))
-
-```{r 2_workflow, warning=FALSE, message=FALSE}
+{
+#from https://www.tidymodels.org/start/recipes/
+# Problem: Predict if a flight is going to arrive late
+# Formula: arr_delay ~ air_time + dep_time + distance + carrier + dest + origin + date_dow + date_month + date_USholiday
+# Model: glm(family = binomial(link = "logit"))
 library("nycflights13") #collection of datasets
 library("skimr")        #function skim() for descriptive statistics
+library("tidyverse")    #collection of packages for data analysis
 library("GGally")       #function ggpairs() for data visualization
 library("tidymodels")   #collection of packages for modelling
-library("tidyverse")    #collection of packages for data analysis
-
-```
-
+library("themis")       #function step_downsample() for tidymodels
+  
 ## 2.1. LOOK AT DATA
 
-```{r 2_1_1_workflow}
 #loading data and making changes
 flight_data <- 
   flights |> 
@@ -219,9 +190,6 @@ glimpse(flight_data)
 #descriptive statistcs
 skim(flight_data)
 
-```
-
-```{r 2_1_2_build, warning=FALSE, fig.height=8, fig.width=8}
 #data visualization
 set.seed(123)
 flight_data |>
@@ -235,160 +203,140 @@ flight_data |>
   select(arr_delay, where(is.factor), where(is.numeric)) |>
   ggpairs(progress = FALSE)
 
-```
-
 ## 2.2. SPLIT DATA
 
-```{r 2_2_workflow}
 #create random data split
 set.seed(222)
-data_split <- initial_split(flight_data, strata = arr_delay, prop = 3/4)
+flight_split <- initial_split(flight_data, strata = arr_delay, prop = 3/4)
 
-train_data <- training(data_split) #extract training data (n = 245510)
-test_data  <- testing(data_split)  #extract testing data   (n = 81836)
+flight_train <- training(flight_split) #extract training data (n = 245510)
+flight_test  <- testing(flight_split)  #extract testing data   (n = 81836)
 
 #look for unbalance in binary dependent variable (training data)
-train_data |> 
+flight_train |> 
   count(arr_delay) |>
   mutate(prop = n/sum(n))
 
 #look for unbalance in binary dependent variable (testing data)
-test_data |> 
+flight_test |> 
   count(arr_delay) |>
   mutate(prop = n/sum(n))
 
-```
 ## 2.3. CREATE MODEL
 
-```{r 2_3_workflow}
 #create model specification
 lr_mod <- 
   logistic_reg() |> 
   set_engine("glm")
 
-```
-
 ## 2.4. CREATE RECIPE
 
-```{r 2_4_workflow}
 #create recipe
-flights_rec <- 
+flight_rec <- 
   #new recipe
-  recipe(formula = arr_delay ~ ., data = train_data) |>
+  recipe(formula = arr_delay ~ ., data = flight_train) |>
   #add role to recipe
   update_role(flight, time_hour, new_role = "ID") |>
   #add date features
   step_date(date, features = c("dow", "month")) |>
   step_holiday(date, holidays = timeDate::listHolidays("US")) |>
   step_rm(date) |>
+  #down sample to correct unbalance in dependent variable
+  step_downsample(arr_delay, skip=TRUE, seed=222) |>
   #convert categorical variables to dummies
   step_dummy(all_nominal_predictors()) |>
   #remove columns with zero variance
-  step_zv(all_predictors())
-```
+  step_zv(all_predictors()) |>
+  #remove highly correlated variables
+  step_corr(all_numeric_predictors(), threshold = 0.9) |>
+  #normalize numeric data
+  step_normalize(all_numeric_predictors())
 
 ## 2.5. CREATE WORKFLOW
 
-```{r 2_5_workflow}
 #create workflow
-flights_wflow <-
+flight_wflow <-
   #new workflow
   workflow() |>
   #add model
   add_model(lr_mod) |>
   #add recipe
-  add_recipe(flights_rec)
-flights_wflow
-
-```
+  add_recipe(flight_rec)
+flight_wflow
 
 ## 2.6. FIT A MODEL
 
-```{r 2_6_workflow}
 #fit the model using training data
 t1 <- Sys.time()
 glm_fit <- 
-  flights_wflow |> 
-  fit(data = train_data)
+  flight_wflow |> 
+  fit(data = flight_train)
 Sys.time() - t1
+#Time difference of 36.94816 secs
 
 #analyse model (classic regression table)
 tidy(glm_fit)
 glance(glm_fit)
 
-```
-
 ## 2.7. EVALUATE MODEL
 
-```{r 2_7_workflow}
 #calculate predictions using testing data
-flights_aug <- 
-  augment(glm_fit, new_data = test_data)
-flights_aug |>
+flight_aug <- 
+  augment(glm_fit, new_data = flight_test)
+flight_aug |>
   select(arr_delay, time_hour, flight, .pred_class, .pred_on_time) |>
   print(n = 20)
 
 #evaluate model using confusion matrix
-lr_cm <- flights_aug |> 
+lr_cmat <- flight_aug |> 
   conf_mat(truth = arr_delay, estimate = .pred_class)
-lr_cm
+lr_cmat
 
-summary(lr_cm)
+summary(lr_cmat)
      
 #evaluate model using ROC curve
-flights_aug |> 
+flight_aug |> 
   roc_curve(truth = arr_delay, .pred_late) |>
   autoplot()
 
 #evaluate model using ROC area
-flights_aug |> 
+flight_aug |> 
   roc_auc(truth = arr_delay, .pred_late)
 
 #extract results
 glm_fit |> 
-  extract_fit_parsnip() |> 
   tidy() |>
   filter(!term %in% c("(Intercept)")) |>
   mutate(
     importance = abs(statistic),
-    term = fct_reorder(term, importance)
+    term = reorder(term, importance)
   ) |>
-  arrange(desc(importance)) |>
+  arrange(desc(abs(statistic))) |>
   slice_head(n = 20) |>
   ggplot(aes(x = importance, y = term)) +
-  geom_col()
- 
-```
+  geom_col() +
+  labs(x = "importance (statistics)")
 
-***
-\newpage
-  
+}
 # 3. BUILD VARIOUS MODELS USING WORKFLOW
-
-[from https://www.tidymodels.org/start/case-study/]
-
-**Problem\:** Predict if a booking has children.
-
-**Formula\:** children \~ .
-
-**Model 1\:** glmnet(family \= "binomial")
-
-**Model 2\:** ranger(classification \= TRUE)
-
-```{r 3_models, warning=FALSE, message=FALSE}
-library("skimr")      #function skim() for descriptive statistics
-library("GGally")     #function ggpairs() for data visualization
-library("glmnet")     #function glmnet() to fit GLMs with penalized mL
-library("ranger")     #function ranger() to random forest models
-library("vip")        #function vip() to plot "vars importance" for ML models
-library("tidymodels") #collection of packages for modelling
-library("tidyverse")  #collection of packages for data analysis
-
-```
-
+{
+#from https://www.tidymodels.org/start/case-study/
+# Problem: Predict if a booking has children
+# Formula: children ~ .
+# Model1: glmnet(family = "binomial")
+# Model2: ranger(classification = TRUE)
+library("skimr")        #function skim() for descriptive statistics
+library("glmnet")       #function glmnet() to fit GLMs with penalized mL
+library("ranger")       #function ranger() to random forest models
+library("vip")          #function vip() to plot "vars importance" for ML models
+library("tidyverse")    #collection of packages for data analysis
+library("GGally")       #function ggpairs() for data visualization
+library("tidymodels")   #collection of packages for modelling
+library("themis")       #function step_downsample() for tidymodels
+  
+  
 ## 3.1. LOOK AT DATA
 
-```{r 3_1_1_models}
 #loading data and making changes
 hotels <- 
   read_csv("https://tidymodels.org/start/case-study/hotels.csv") |>
@@ -400,9 +348,6 @@ glimpse(hotels)
 #descriptive statistics
 skim(hotels)
 
-```
-
-```{r 3_1_2_build, warning=FALSE, fig.height=8, fig.width=8}
 #data visualization
 set.seed(123)
 hotels |>
@@ -418,17 +363,14 @@ hotels |>
   select(children, where(is.factor), where(is.numeric)) |>
   ggpairs(progress = FALSE)
 
-```
-
 ## 3.2. SPLIT DATA
 
-```{r 3_2_models}
 #create random data split
 set.seed(123)
-splits      <- initial_split(hotels, strata = children, prop = 0.75)
+hotel_split <- initial_split(hotels, strata = children, prop = 0.75)
 
-hotel_other <- training(splits) #extract training data (n = 37500)
-hotel_test  <- testing(splits)  #extract testing data  (n = 12500)
+hotel_other <- training(hotel_split) #extract training data (n = 37500)
+hotel_test  <- testing(hotel_split)  #extract testing data  (n = 12500)
 
 #look for unbalance in binary dependent variable (training data)
 hotel_other |> 
@@ -441,20 +383,14 @@ hotel_test  |>
   mutate(prop = n/sum(n))
 
 #create random split of training data (n_training = 30000, n_tuning = 7500)
-set.seed(234)
-val_set <- validation_split(hotel_other, strata = children, prop = 0.80)
- 
-```
+set.seed(222)
+hotel_val <- validation_split(hotel_other, strata = children, prop = 0.80)
 
-## 3.3. CREATE WORKFLOW AND FIT MODEL 1
+## 3.3. CREATE WORKFLOW AND TUNE MODEL 1
 
-```{r 3_3_1_models, eval=FALSE}
 #create model specification
 ?logistic_reg
 
-```
-
-```{r 3_3_2_models}
 lr_mod <- 
   logistic_reg(
     penalty = tune(), #total amount of regularization
@@ -465,44 +401,49 @@ lr_mod <-
 #create recipe
 holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
               "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
-lr_recipe <- 
+hotel_rec <- 
   #new recipe
   recipe(children ~ ., data = hotel_other) |> 
   #add date features
   step_date(arrival_date) |> 
   step_holiday(arrival_date, holidays = holidays) |> 
   step_rm(arrival_date) |> 
+  #down sample to correct unbalance in dependent variable
+  step_downsample(children, skip=TRUE, seed=222) |>
   #convert categorical variables to dummies
   step_dummy(all_nominal_predictors()) |> 
   #remove columns with zero variance
   step_zv(all_predictors()) |> 
+  #remove highly correlated variables
+  step_corr(all_numeric_predictors(), threshold = 0.9) |>
   #normalize numeric data
   step_normalize(all_predictors())
 
 #create workflow
-lr_workflow <- 
+lr_wflow <- 
   #new workflow
   workflow() |> 
   #add model
   add_model(lr_mod) |> 
   #add recipe
-  add_recipe(lr_recipe)
-lr_workflow
+  add_recipe(hotel_rec)
+lr_wflow
 
-#fit model using training data and evaluate using tuning data
+#fit 20 models using training data and evaluate using tuning data
 t1 <- Sys.time()
 lr_res <- 
-  lr_workflow |> 
+  lr_wflow |> 
   tune_grid(
-    resamples = val_set,
+    resamples = hotel_val,
     grid = 20,
     control = control_grid(save_pred = TRUE),
     metrics = metric_set(roc_auc)
   )
 Sys.time() - t1
+#Time difference of 5.947528 secs
 
 #plot tuning metrics
-autoplot(lr_res)
+autoplot(lr_res) + expand_limits(y=c(0.5, 1))
 
 #select best tuning parameter
 lr_best <- 
@@ -513,35 +454,33 @@ lr_best
 #collect predictions using best tuned model
 lr_pred <- lr_res |>
   collect_predictions(parameters = lr_best)
-  
-#evaluate model using ROC curve
+
+#evaluate best tuned model using confusion matrix
+lr_pred |> 
+  mutate(
+    .pred_class = factor(if_else(.pred_children < 0.5, "none", "children"))
+  ) |>
+  conf_mat(truth = children, estimate = .pred_class)
+
+#evaluate best tuned model using ROC curve
 lr_auc <- 
   lr_pred |>
   roc_curve(children, .pred_children) |>
   mutate(model = "Logistic Regression")
 autoplot(lr_auc)
 
-#evaluate model using ROC area
+#evaluate best tuned model using ROC area
 lr_pred |>
   roc_auc(children, .pred_children)
 
-```
+## 3.4. CREATE WORKFLOW AND TUNE MODEL 2
 
-## 3.4. CREATE WORKFLOW AND FIT MODEL 2
-
-```{r 3_4_1_models}
 #number of cores to parallelize computation
 cores <- parallel::detectCores()
 
-```
-
-```{r 3_4_2_models, eval=FALSE}
 #create model specification
 ?rand_forest
 
-```
-
-```{r 3_4_3_models}
 rf_mod <- 
   rand_forest(
     mtry = tune(),  #number of predictors for each split
@@ -551,42 +490,32 @@ rf_mod <-
   set_engine("ranger", num.threads = cores) |> 
   set_mode("classification")
 
-#create recipe
-holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
-              "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
-rf_recipe <- 
-  #new recipe
-  recipe(children ~ ., data = hotel_other) |> 
-  #add date features
-  step_date(arrival_date) |> 
-  step_holiday(arrival_date, holidays = holidays) |> 
-  step_rm(arrival_date)
-
-#create workflow
-rf_workflow <- 
+#create workflow (re-using previous recipe)
+rf_wflow <- 
   #new workflow
   workflow() |> 
   #add model
   add_model(rf_mod) |> 
   #add recipe
-  add_recipe(rf_recipe)
-rf_workflow
+  add_recipe(hotel_rec)
+rf_wflow
   
-#fit model using training data and evaluate using tuning data
-set.seed(345)
+#fit 10 models using training data and evaluate using tuning data
+set.seed(222)
 t1 <- Sys.time()
 rf_res <- 
-  rf_workflow |> 
+  rf_wflow |> 
   tune_grid(
-    resamples = val_set,
+    resamples = hotel_val,
     grid = 10,
     control = control_grid(save_pred = TRUE),
     metrics = metric_set(roc_auc)
   )
 Sys.time() - t1
+#Time difference of 1.310099 mins
 
 #plot tuning metrics
-autoplot(rf_res)
+autoplot(rf_res) + expand_limits(y=c(0.5, 1))
 
 #select best parameters
 rf_best <- 
@@ -599,22 +528,26 @@ rf_pred <-
   rf_res |> 
   collect_predictions(parameters = rf_best)
 
-#evaluate model using ROC curve
+#evaluate best tuned model using confusion matrix
+rf_pred |> 
+  mutate(
+    .pred_class = factor(if_else(.pred_children < 0.5, "none", "children"))
+  ) |>
+  conf_mat(truth = children, estimate = .pred_class)
+
+#evaluate best tuned model using ROC curve
 rf_auc <- 
   rf_pred |> 
   roc_curve(children, .pred_children) |> 
   mutate(model = "Random Forest")
 autoplot(rf_auc)
 
-#evaluate model using ROC area
+#evaluate best tuned model using ROC area
 rf_pred |> roc_auc(children, .pred_children)
 
-```
+## 3.5. FIT AND EVALUATE BEST MODEL
 
-## 3.5. EVALUATE LAST MODEL
-
-```{r 3_5_models}
-#compare best models
+#compare best tuned models
 bind_rows(rf_auc, lr_auc) |> 
   ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
   geom_path(lwd = 1.0, alpha = 0.8) +
@@ -623,8 +556,8 @@ bind_rows(rf_auc, lr_auc) |>
   theme_bw() +
   theme(legend.position = "bottom")
   
-#build last model
-last_rf_mod <- 
+#build last model [random forest]
+rf_mod_last <- 
   rand_forest(
     mtry = rf_best$mtry,
     min_n = rf_best$min_n,
@@ -634,41 +567,41 @@ last_rf_mod <-
   set_mode("classification")
 
 #create last workflow
-last_rf_workflow <-
+rf_wflow_last <-
   #random forest workflow
-  rf_workflow |> 
+  rf_wflow |> 
   #update with tuned model
-  update_model(last_rf_mod)
+  update_model(rf_mod_last)
 
-#fit last model using testing data
+#fit last model using training data and evaluate using testing data
 set.seed(345)
 t1 <- Sys.time()
-last_rf_fit <- 
-  last_rf_workflow |> 
-  last_fit(split = splits)
+rf_fit_last <- 
+  rf_wflow_last |> 
+  last_fit(split = hotel_split)
 Sys.time() - t1
+#Time difference of 12.0514 secs
 
-#collect predictions using testing data
-last_rf_pred <- last_rf_fit |>
+#collect predictions using last model
+rf_pred_last <- rf_fit_last |>
   collect_predictions()
 
 #evaluate model using confusion matrix
-last_rf_pred |>
+rf_pred_last |>
   conf_mat(truth = children, estimate = .pred_class)
 
 #evaluate model using ROC curve
-last_rf_pred |>
+rf_pred_last |>
   roc_curve(children, .pred_children) |>
   autoplot()
 
 #evaluate model using ROC area
-last_rf_pred |>
+rf_pred_last |>
   roc_auc(children, .pred_children)
 
 #extract results
-last_rf_fit |> 
+rf_fit_last |> 
   extract_fit_parsnip() |> 
   vip(num_features = 20)
- 
-```
-
+  
+}
